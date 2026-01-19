@@ -1,0 +1,2 @@
+mamba create -n cuttag -y fastqc fastp bowtie2 samtools bedtools macs2 deeptools homer
+mamba activate cuttag

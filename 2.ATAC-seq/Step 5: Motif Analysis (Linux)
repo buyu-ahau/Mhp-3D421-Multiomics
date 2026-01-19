@@ -1,0 +1,5 @@
+mkdir -p 08_Motif/UP 08_Motif/DOWN
+
+# Transfer UP.bed and DOWN.bed from R to Linux
+findMotifsGenome.pl 07_Diff_Analysis/UP.bed hg38 08_Motif/UP -size 200 -p $threads
+findMotifsGenome.pl 07_Diff_Analysis/DOWN.bed hg38 08_Motif/DOWN -size 200 -p $threads

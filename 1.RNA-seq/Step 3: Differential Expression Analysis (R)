@@ -1,0 +1,33 @@
+library(DESeq2)
+library(tidyverse)
+library(data.table)
+
+dir.create("05_Diff_Analysis")
+
+raw_counts <- fread("04_Count/counts.txt", data.table = FALSE)
+rownames(raw_counts) <- raw_counts$Geneid
+count_matrix <- raw_counts[, 7:ncol(raw_counts)]
+
+colnames(count_matrix) <- gsub(".*(Control_\\d+).*", "\\1", colnames(count_matrix))
+colnames(count_matrix) <- gsub(".*(Experimental_\\d+).*", "\\1", colnames(count_matrix))
+
+group_list <- factor(c(rep("Control", 6), rep("Experimental", 6)), levels = c("Control", "Experimental"))
+colData <- data.frame(row.names = colnames(count_matrix), group = group_list)
+
+dds <- DESeqDataSetFromMatrix(countData = count_matrix, colData = colData, design = ~ group)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
+dds <- DESeq(dds)
+res <- results(dds, contrast = c("group", "Experimental", "Control"))
+
+res_df <- as.data.frame(res) %>% rownames_to_column("Ensembl_ID")
+# Note: User must replace 'org.Ss.eg.db' with the correct organism database
+library(org.Ss.eg.db)
+res_df$Gene_Symbol <- mapIds(org.Ss.eg.db, keys = res_df$Ensembl_ID, column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+
+write.csv(res_df, "05_Diff_Analysis/All_Genes_Diff.csv", row.names = FALSE)
+write.table(res_df$Ensembl_ID, "05_Diff_Analysis/List_Ensembl_ID.txt", quote = FALSE, row.names = FALSE, col.names = FALSE)
+write.table(res_df$Gene_Symbol, "05_Diff_Analysis/List_Gene_Symbol.txt", quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+sig_res <- res_df %>% filter(padj < 0.05 & abs(log2FoldChange) > 1)
+write.csv(sig_res, "05_Diff_Analysis/Significant_Genes.csv", row.names = FALSE)

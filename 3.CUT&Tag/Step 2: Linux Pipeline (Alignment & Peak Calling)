@@ -1,0 +1,39 @@
+mkdir -p 00_RawData 01_QC 02_CleanData 03_Align 04_Peaks 05_Signal
+
+threads=120
+genome_index="/path/to/bowtie2_index/genome"
+blacklist="/path/to/blacklist.bed"
+
+# Processing control-Jun and treat-Jun
+for sample in control-Jun treat-Jun; do
+    fastp -i ${sample}_R1.fastq -I ${sample}_R2.fastq \
+          -o 02_CleanData/${sample}_1.clean.fq.gz -O 02_CleanData/${sample}_2.clean.fq.gz \
+          -h 01_QC/${sample}.html -j 01_QC/${sample}.json \
+          -w 16 --detect_adapter_for_pe
+
+    # CUT&Tag specific Bowtie2 parameters
+    bowtie2 -p $threads -x $genome_index \
+            -1 02_CleanData/${sample}_1.clean.fq.gz -2 02_CleanData/${sample}_2.clean.fq.gz \
+            --local --very-sensitive --no-mixed --no-discordant --phred33 -I 10 -X 700 \
+            2> 03_Align/${sample}.log | \
+    samtools view -@ 20 -bS - | \
+    samtools sort -@ 20 -o 03_Align/${sample}.sorted.bam
+
+    samtools index -@ $threads 03_Align/${sample}.sorted.bam
+
+    # Remove Blacklist
+    samtools view -@ 20 -b -F 4 -f 2 -q 30 03_Align/${sample}.sorted.bam | \
+    samtools view -@ 20 -b -L $blacklist -U 03_Align/${sample}.rmBlacklist.bam - > /dev/null
+    
+    # Remove Duplicates (Picard recommended for C&T, but samtools used here for SOP consistency)
+    samtools rmdup 03_Align/${sample}.rmBlacklist.bam 03_Align/${sample}.final.bam
+    samtools index -@ $threads 03_Align/${sample}.final.bam
+
+    # Call Peaks (MACS2 for Transcription Factors)
+    macs2 callpeak -t 03_Align/${sample}.final.bam \
+          -f BAMPE -g hs -n ${sample} --outdir 04_Peaks -q 0.05
+    
+    # Generate BigWig
+    bamCoverage -b 03_Align/${sample}.final.bam -o 05_Signal/${sample}.bw \
+        --normalizeUsing RPKM -p $threads --binSize 10 --smoothLength 30
+done

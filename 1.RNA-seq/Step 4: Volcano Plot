@@ -1,0 +1,33 @@
+library(ggplot2)
+library(ggrepel)
+library(ggnewscale)
+
+data <- res_df
+logFC_cutoff <- 1
+padj_cutoff <- 0.05
+
+max_val <- max(abs(data$log2FoldChange), na.rm = TRUE)
+limit_range <- max_val * 1.1
+
+data$change <- ifelse(data$padj < padj_cutoff & data$log2FoldChange > logFC_cutoff, "UP",
+               ifelse(data$padj < padj_cutoff & data$log2FoldChange < -logFC_cutoff, "DOWN", "NOT"))
+
+top10_label <- data %>% filter(change != "NOT") %>% arrange(padj) %>% head(10)
+
+p <- ggplot(data, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(data = subset(data, change == "NOT"), color = "grey85", size = 1, alpha = 0.5) +
+  new_scale_color() +
+  geom_point(data = subset(data, change == "DOWN"), aes(color = log2FoldChange), size = 2) +
+  scale_color_gradient(low = "#333aab", high = "#b5dbe6") +
+  new_scale_color() +
+  geom_point(data = subset(data, change == "UP"), aes(color = log2FoldChange), size = 2) +
+  scale_color_gradient(low = "#fe8264", high = "#a73336") +
+  geom_vline(xintercept = c(-logFC_cutoff, logFC_cutoff), linetype = "dashed", color = "grey50") +
+  geom_hline(yintercept = -log10(padj_cutoff), linetype = "dashed", color = "grey50") +
+  scale_x_continuous(limits = c(-limit_range, limit_range)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  geom_text_repel(data = top10_label, aes(label = Gene_Symbol), size = 3, box.padding = unit(0.5, "lines")) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), panel.border = element_rect(color = "black", fill = NA, size = 1))
+
+ggsave("05_Diff_Analysis/Volcano_Plot.pdf", p, width = 6, height = 5)

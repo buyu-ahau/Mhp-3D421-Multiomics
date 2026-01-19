@@ -1,0 +1,7 @@
+mkdir -p 08_Motif
+
+# Extract sequences from peaks
+awk '{print $4, $1, $2, $3, "+"}' 04_Peaks/treat-Jun_peaks.narrowPeak > 08_Motif/treat_peaks.saf
+
+# Find Motifs
+findMotifsGenome.pl 08_Motif/treat_peaks.saf hg38 08_Motif/ -size 200 -p $threads

@@ -1,0 +1,2 @@
+mamba create -n rnaseq -y fastqc fastp star samtools subread
+mamba activate rnaseq

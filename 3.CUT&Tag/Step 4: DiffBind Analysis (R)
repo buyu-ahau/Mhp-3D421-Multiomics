@@ -1,0 +1,49 @@
+library(DiffBind)
+library(tidyverse)
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(org.Hs.eg.db)
+
+dir.create("07_Diff_Analysis")
+
+# Create Sample Sheet (Assuming n=1 for this specific list, but structure allows adding reps)
+samples <- data.frame(
+  SampleID = c("control-Jun", "treat-Jun"),
+  Factor = c("Jun", "Jun"),
+  Condition = c("Control", "Treatment"),
+  bamReads = c("03_Align/control-Jun.final.bam", "03_Align/treat-Jun.final.bam"),
+  Peaks = c("04_Peaks/control-Jun_peaks.narrowPeak", "04_Peaks/treat-Jun_peaks.narrowPeak"),
+  PeakCaller = c("macs", "macs")
+)
+
+dba_obj <- dba(sampleSheet = samples)
+
+# Count reads in peaks
+dba_cnt <- dba.count(dba_obj, bUseSummarizeOverlaps=TRUE)
+
+# Normalize
+dba_norm <- dba.normalize(dba_cnt)
+
+# Note: Formal statistical analysis (DESeq2/EdgeR) requires replicates. 
+# Since n=1, we calculate occupancy overlap and binding affinity changes directly.
+
+# Plot Occupancy (Venn)
+pdf("07_Diff_Analysis/Venn_Overlap.pdf")
+dba.plotVenn(dba_obj)
+dev.off()
+
+# Extract Binding Matrix
+binding_matrix <- dba.peakset(dba_norm, bRetrieve=TRUE, DataType=DBA_DATA_FRAME)
+write.csv(binding_matrix, "07_Diff_Analysis/Binding_Matrix.csv", row.names=FALSE)
+
+# Annotate Unique/Differential Peaks
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+peak_anno <- annotatePeak(makeGRangesFromDataFrame(binding_matrix, keep.extra.columns=TRUE), 
+                          TxDb=txdb, annoDb="org.Hs.eg.db")
+
+pdf("07_Diff_Analysis/Peak_Anno_Barplot.pdf")
+plotAnnoBar(peak_anno)
+dev.off()
+
+as.data.frame(peak_anno) %>% 
+  write.csv("07_Diff_Analysis/Annotated_Peaks.csv", row.names=FALSE)

@@ -1,0 +1,38 @@
+library(DESeq2)
+library(tidyverse)
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(org.Hs.eg.db)
+
+dir.create("07_Diff_Analysis")
+
+counts <- read.table("06_Count/counts.txt", header=T, row.names=1, comment.char="#")
+counts <- counts[, 6:ncol(counts)]
+colnames(counts) <- gsub(".*(Control_\\d+).*", "\\1", colnames(counts))
+colnames(counts) <- gsub(".*(Experimental_\\d+).*", "\\1", colnames(counts))
+
+condition <- factor(c(rep("Control", 6), rep("Experimental", 6)), levels = c("Control", "Experimental"))
+colData <- data.frame(row.names=colnames(counts), condition=condition)
+
+dds <- DESeqDataSetFromMatrix(countData = counts, colData = colData, design = ~ condition)
+dds <- DESeq(dds)
+res <- results(dds, contrast=c("condition", "Experimental", "Control"))
+res_df <- as.data.frame(res) %>% rownames_to_column("PeakID")
+
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+peak_anno <- readPeakFile("04_Peaks/merged_peaks.bed")
+peak_anno_res <- annotatePeak(peak_anno, tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
+anno_df <- as.data.frame(peak_anno_res)
+anno_df$PeakID <- paste0("Peak_", 1:nrow(anno_df))
+
+final_res <- merge(res_df, anno_df, by="PeakID")
+write.csv(final_res, "07_Diff_Analysis/All_Peaks_Diff.csv", row.names=F)
+
+up_peaks <- final_res %>% filter(padj < 0.05 & log2FoldChange > 1)
+down_peaks <- final_res %>% filter(padj < 0.05 & log2FoldChange < -1)
+
+write.table(up_peaks[, c("seqnames", "start", "end")], "07_Diff_Analysis/UP.bed", quote=F, row.names=F, col.names=F, sep="\t")
+write.table(down_peaks[, c("seqnames", "start", "end")], "07_Diff_Analysis/DOWN.bed", quote=F, row.names=F, col.names=F, sep="\t")
+
+# Visualization: Volcano & Heatmap (Same Code as RNA-seq)
+# ... (Use the Nature Style Volcano/Heatmap code provided in RNA-seq section)

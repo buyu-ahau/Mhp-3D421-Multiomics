@@ -1,0 +1,25 @@
+library(ComplexHeatmap)
+library(circlize)
+
+rlog_out <- rlog(dds, blind = FALSE)
+mat <- assay(rlog_out)[rownames(sig_res), ]
+mat_scaled <- t(scale(t(mat)))
+
+col_fun <- colorRamp2(c(-2, 0, 2), c("#333aab", "white", "#a73336"))
+
+top20_genes <- sig_res %>% arrange(padj) %>% head(20)
+gene_labels <- rowAnnotation(link = anno_mark(at = match(top20_genes$Ensembl_ID, rownames(mat_scaled)), 
+                                              labels = top20_genes$Gene_Symbol, 
+                                              padding = unit(3.5, "mm"), 
+                                              link_width = unit(10, "mm")))
+
+pdf("05_Diff_Analysis/Heatmap.pdf", width = 8, height = 10)
+Heatmap(mat_scaled, 
+        name = "Z-score", 
+        col = col_fun,
+        cluster_rows = TRUE, 
+        row_km = 2,
+        cluster_columns = FALSE, 
+        show_row_names = FALSE, 
+        right_annotation = gene_labels)
+dev.off()

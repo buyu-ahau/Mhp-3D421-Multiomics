@@ -1,0 +1,2 @@
+mamba create -n atac -y fastqc fastp bowtie2 samtools bedtools macs2 subread deeptools homer
+mamba activate atac

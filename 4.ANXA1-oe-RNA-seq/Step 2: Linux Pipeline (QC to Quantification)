@@ -1,0 +1,35 @@
+mkdir -p 00_RawData 01_QC 02_CleanData 03_Align 04_Count
+
+threads=120
+genome_dir="/path/to/star_index"
+gtf_file="/path/to/genome.gtf"
+
+for i in {1..5}; do
+    fastp -i ANXA1_NC_${i}_1.fq.gz -I ANXA1_NC_${i}_2.fq.gz \
+          -o 02_CleanData/ANXA1_NC_${i}_1.clean.fq.gz -O 02_CleanData/ANXA1_NC_${i}_2.clean.fq.gz \
+          -h 01_QC/ANXA1_NC_${i}.html -j 01_QC/ANXA1_NC_${i}.json -w 16
+
+    STAR --runThreadN $threads --genomeDir $genome_dir \
+         --readFilesIn 02_CleanData/ANXA1_NC_${i}_1.clean.fq.gz 02_CleanData/ANXA1_NC_${i}_2.clean.fq.gz \
+         --readFilesCommand zcat \
+         --outFileNamePrefix 03_Align/ANXA1_NC_${i}. \
+         --outSAMtype BAM SortedByCoordinate
+
+    samtools index -@ $threads 03_Align/ANXA1_NC_${i}.Aligned.sortedByCoord.out.bam
+done
+
+for i in {1..5}; do
+    fastp -i ANXA1_OE_${i}_1.fq.gz -I ANXA1_OE_${i}_2.fq.gz \
+          -o 02_CleanData/ANXA1_OE_${i}_1.clean.fq.gz -O 02_CleanData/ANXA1_OE_${i}_2.clean.fq.gz \
+          -h 01_QC/ANXA1_OE_${i}.html -j 01_QC/ANXA1_OE_${i}.json -w 16
+
+    STAR --runThreadN $threads --genomeDir $genome_dir \
+         --readFilesIn 02_CleanData/ANXA1_OE_${i}_1.clean.fq.gz 02_CleanData/ANXA1_OE_${i}_2.clean.fq.gz \
+         --readFilesCommand zcat \
+         --outFileNamePrefix 03_Align/ANXA1_OE_${i}. \
+         --outSAMtype BAM SortedByCoordinate
+
+    samtools index -@ $threads 03_Align/ANXA1_OE_${i}.Aligned.sortedByCoord.out.bam
+done
+
+featureCounts -T $threads -p -t exon -g gene_id -a $gtf_file -o 04_Count/counts.txt 03_Align/*.bam

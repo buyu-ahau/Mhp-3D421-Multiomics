@@ -1,0 +1,18 @@
+library(clusterProfiler)
+library(org.Ss.eg.db)
+
+gene_ids <- sig_res$Ensembl_ID
+
+go_result <- enrichGO(gene = gene_ids, OrgDb = org.Ss.eg.db, keyType = "ENSEMBL", ont = "ALL", pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2)
+pdf("05_Diff_Analysis/GO_Barplot.pdf", width = 10, height = 8)
+barplot(go_result, showCategory = 20)
+dev.off()
+
+kegg_ids <- mapIds(org.Ss.eg.db, keys = gene_ids, column = "ENTREZID", keytype = "ENSEMBL", multiVals = "first")
+kegg_result <- enrichKEGG(gene = kegg_ids, organism = "ssc", pvalueCutoff = 0.05)
+
+pdf("05_Diff_Analysis/KEGG_Dotplot.pdf", width = 10, height = 8)
+dotplot(kegg_result, showCategory = 20) + 
+  scale_color_gradient(low = "#E64B35", high = "#4DBBD5") + 
+  theme(panel.grid = element_blank())
+dev.off()

@@ -1,0 +1,16 @@
+mkdir -p 06_Heatmap
+
+# Compute Matrix on Peaks
+computeMatrix reference-point --referencePoint center \
+    -b 2000 -a 2000 \
+    -R 04_Peaks/*.narrowPeak \
+    -S 05_Signal/control-Jun.bw 05_Signal/treat-Jun.bw \
+    --skipZeros -o 06_Heatmap/matrix_Jun.gz -p $threads
+
+# Plot Heatmap (Nature Style)
+plotHeatmap -m 06_Heatmap/matrix_Jun.gz \
+    -out 06_Heatmap/Heatmap_Jun.pdf \
+    --colorMap Reds \
+    --whatToShow 'heatmap and colorbar' \
+    --zMin 0 --zMax 15 \
+    --regionsLabel "Peaks"

@@ -1,0 +1,5 @@
+cat 04_Peaks/*.narrowPeak | cut -f 1-4 | sort -k1,1 -k2,2n | bedtools merge -i - > 04_Peaks/merged_peaks.bed
+
+awk 'BEGIN{OFS="\t"}{print "Peak_"NR, $1, $2, $3, "+"}' 04_Peaks/merged_peaks.bed > 04_Peaks/merged.saf
+
+featureCounts -p -T $threads -F SAF -a 04_Peaks/merged.saf -o 06_Count/counts.txt 03_Align/*.final.bam

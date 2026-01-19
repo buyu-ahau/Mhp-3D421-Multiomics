@@ -1,0 +1,13 @@
+mkdir -p 09_Heatmap
+
+computeMatrix reference-point --referencePoint center \
+    -b 1000 -a 1000 \
+    -R 04_Peaks/merged_peaks.bed \
+    -S 05_Signal/*.bw \
+    --skipZeros -o 09_Heatmap/matrix.gz -p $threads
+
+plotHeatmap -m 09_Heatmap/matrix.gz \
+    -out 09_Heatmap/Heatmap_Signal.pdf \
+    --colorMap Reds \
+    --whatToShow 'heatmap and colorbar' \
+    --zMin 0 --zMax 10

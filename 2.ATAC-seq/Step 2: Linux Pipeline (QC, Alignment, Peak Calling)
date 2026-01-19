@@ -1,0 +1,36 @@
+mkdir -p 00_RawData 01_QC 02_CleanData 03_Align 04_Peaks 05_Signal 06_Count
+
+threads=120
+genome_index="/path/to/bowtie2_index/genome"
+blacklist="/path/to/blacklist.bed"
+
+for file in *R1_001.fastq.gz; do
+    sample_name="${file%%_S*}"
+    r2_file="${file/R1_001.fastq.gz/R2_001.fastq.gz}"
+    
+    fastp -i "$file" -I "$r2_file" \
+          -o "02_CleanData/${sample_name}_1.clean.fq.gz" -O "02_CleanData/${sample_name}_2.clean.fq.gz" \
+          -h "01_QC/${sample_name}.html" -j "01_QC/${sample_name}.json" \
+          -w 16 --detect_adapter_for_pe
+
+    bowtie2 -p $threads -x $genome_index \
+            -1 "02_CleanData/${sample_name}_1.clean.fq.gz" -2 "02_CleanData/${sample_name}_2.clean.fq.gz" \
+            -X 2000 --no-mixed --no-discordant \
+            2> "03_Align/${sample_name}.log" | \
+    samtools view -@ 20 -bS - | \
+    samtools sort -@ 20 -o "03_Align/${sample_name}.sorted.bam"
+
+    samtools index -@ $threads "03_Align/${sample_name}.sorted.bam"
+    
+    samtools view -@ 20 -b -F 4 -f 2 -q 30 "03_Align/${sample_name}.sorted.bam" | \
+    samtools view -@ 20 -b -L "$blacklist" -U "03_Align/${sample_name}.rmBlacklist.bam" - > /dev/null
+    
+    samtools rmdup "03_Align/${sample_name}.rmBlacklist.bam" "03_Align/${sample_name}.final.bam"
+    samtools index -@ $threads "03_Align/${sample_name}.final.bam"
+
+    macs2 callpeak -t "03_Align/${sample_name}.final.bam" \
+          -f BAMPE -g hs -n "${sample_name}" --outdir 04_Peaks -q 0.05
+          
+    bamCoverage -b "03_Align/${sample_name}.final.bam" -o "05_Signal/${sample_name}.bw" \
+        --normalizeUsing RPKM -p $threads
+done
