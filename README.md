@@ -13,4 +13,4 @@ The analysis workflow includes:
 - **CUT&Tag**: Histone modification profiling and integration.
 
 ## Contact
-For any questions regarding the code, please open an issue or contact: **Yu Bu (Email: [15225568606@163.com])**
+For any questions regarding the code, please open an issue or contact: **Yu Bu (Email: 15225568606@163.com)**
